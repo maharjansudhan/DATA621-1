@@ -1,0 +1,178 @@
+---
+title: "DATA 621 Homework #1"
+author: "Calvin, Juanelle, Kevin, Ravi, Sudhan"
+date: "9/25/2019"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+        theme: lumen
+        number_sections: TRUE
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Exploration
+
+Load and do initial review of the data.  Need to address missing data.
+
+```{r message = FALSE}
+library(tidyverse)
+
+gh <- "https://raw.githubusercontent.com/kecbenson/DATA621/master/HW1/"
+file_train <- paste0(gh, "moneyball-training-data.csv")
+file_test <- paste0(gh, "moneyball-evaluation-data.csv")
+
+df_train <- read_csv(file_train)
+df_test <- read_csv(file_test)
+
+head(df_train)
+str(df_train)
+summary(df_train)
+attach(df_train)
+```
+
+Check distributions of the data; skewness may need to be dealt with transformations. 
+
+```{r cache = TRUE}
+hist(df_train$TARGET_WINS)
+#pairs(df_train)
+
+for (j in 2:ncol(df_train)) {
+    hist(df_train[[j]], main = paste0("Histogram of ", colnames(df_train)[j]),
+         xlab = colnames(df_train)[j], freq = FALSE)
+    minval <- min(df_train[[j]], na.rm = TRUE)
+    maxval <- max(df_train[[j]], na.rm = TRUE)
+    meanval <- mean(df_train[[j]], na.rm = TRUE)
+    sdval <- sd(df_train[[j]], na.rm = TRUE)
+    grid <- minval:maxval
+    lines(grid, dnorm(grid, mean = meanval, sd = sdval), lty = 3)
+    
+}
+```
+
+Review pair-wise relationships between predictor variables and target variable.
+
+```{r cache = TRUE}
+# batting variables (hits through home runs)
+pairs(df_train[2:6])
+# batting variables (walks, strikeouts, hit by pitch)
+pairs(df_train[c(2, 7:8, 11)])
+# baserun and fielding variables
+pairs(df_train[c(2, 9:10, 16:17)])
+# pitching variables
+pairs(df_train[c(2, 12:15)])
+```
+
+
+# Data Preparation
+
+Do mean imputation
+Add missing data indicators for some variables (3 variables that have >10% missing values)
+
+# Model Building
+
+Sample models - note that I haven't dealt with the missing values yet, so stats below are not right.
+
+Suggest organizing the models we show:
+- Kitchen sink model: use all variables at once
+- Do step-by-step variable elimination: at each step, drop the variable that is not signif; stop when all variables are signif at 5%
+- Try models with transformed variables: (a) try log or sqrt transform for skewed variables; (b) try aggregating related variables
+
+```{r}
+
+lm0 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP + 
+              TEAM_BASERUN_SB + TEAM_BASERUN_CS)
+(lm0sum <- summary(lm0))
+
+lm1 <- lm(TARGET_WINS ~ I(TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP) + 
+              I(TEAM_BASERUN_SB - TEAM_BASERUN_CS))
+(lm1sum <- summary(lm1))
+
+lm2 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BASERUN_SB + 
+              TEAM_FIELDING_E + TEAM_PITCHING_H + TEAM_PITCHING_BB + TEAM_PITCHING_SO)
+(lm2sum <- summary(lm2))
+
+lm3 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_3B +
+              TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BATTING_HBP)
+(lm3sum <- summary(lm3))
+
+lm3a <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + 
+               TEAM_BATTING_SO)
+(lm3asum <- summary(lm3a))
+
+lm4 <- lm(TARGET_WINS ~ TEAM_BASERUN_SB + TEAM_BASERUN_CS + TEAM_FIELDING_E +
+              TEAM_FIELDING_DP)
+(lm4sum <- summary(lm4))
+
+lm5 <- lm(TARGET_WINS ~ TEAM_PITCHING_H + TEAM_PITCHING_HR + TEAM_PITCHING_BB +
+              TEAM_PITCHING_SO)
+(lm5sum <- summary(lm5))
+
+lm6 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + 
+              TEAM_BATTING_SO + TEAM_BASERUN_SB + TEAM_FIELDING_E + 
+              TEAM_PITCHING_H + TEAM_PITCHING_HR + TEAM_PITCHING_BB)
+(lm6sum <- summary(lm6))
+
+lm7 <- lm(TARGET_WINS ~ I(TEAM_BATTING_H + TEAM_BATTING_BB) + TEAM_BATTING_HR + 
+              I(TEAM_BASERUN_SB - TEAM_BASERUN_CS) + TEAM_FIELDING_E +
+              I(TEAM_PITCHING_H + TEAM_PITCHING_BB) + TEAM_PITCHING_HR)
+(lm7sum <- summary(lm7))
+
+```
+
+
+# Model Selection
+
+We start by reviewing summary statistics for the various models.
+
+```{r}
+library(knitr)
+
+models <- list(lm0, lm1, lm2, lm3, lm4, lm5, lm6, lm7)
+modsums <- list(lm0sum, lm1sum, lm2sum, lm3sum, lm4sum, lm5sum, lm6sum, lm7sum)
+nmod <- length(modsums)
+
+nvar <- integer(nmod)
+sigma <- numeric(nmod)
+rsq <- numeric(nmod)
+adj_rsq <- numeric(nmod)
+fstat_p <- numeric(nmod)
+
+for (j in 1:nmod) {
+    nvar[j] <- modsums[[j]]$df[1]
+    sigma[j] <- modsums[[j]]$sigma
+    rsq[j] <- modsums[[j]]$r.squared
+    adj_rsq[j] <- modsums[[j]]$adj.r.squared
+    fstat_p[j] <- 1 - pf(modsums[[j]]$fstatistic[1], modsums[[j]]$fstatistic[2], 
+                         modsums[[j]]$fstatistic[3])
+}
+
+modnames <- paste0("lm", 0:7)
+
+eval <- data.frame(Model = modnames, 
+                   N_Variables = nvar,
+                   Resid_Sigma = sigma,
+                   R_Squared = rsq,
+                   Adj_R_Squared = adj_rsq,
+                   F_P_Value = fstat_p)
+
+kable(eval, digits = 3, align = 'c', caption = 'Summary Evaluation Statistics')
+```
+
+>>> NEED to include MSE, RMSE 
+
+```{r}
+str(df_test)
+head(df_test)
+
+```
+
+
+    
+detach(df_train)
+
+```
+
