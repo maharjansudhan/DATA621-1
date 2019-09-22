@@ -20,6 +20,7 @@ Load and do initial review of the data.  Need to address missing data.
 
 ```{r message = FALSE}
 library(tidyverse)
+library(funModeling)
 
 gh <- "https://raw.githubusercontent.com/kecbenson/DATA621/master/HW1/"
 file_train <- paste0(gh, "moneyball-training-data.csv")
@@ -68,6 +69,82 @@ pairs(df_train[c(2, 12:15)])
 
 
 # Data Preparation
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$HBP_missing <- ifelse(is.na(df_train$TEAM_BATTING_HBP), 1, 0)
+# imputing mean value as a replacement to NA
+df_train$TEAM_BATTING_HBP[is.na(df_train$TEAM_BATTING_HBP)] <- mean(df_train$TEAM_BATTING_HBP, na.rm=TRUE)
+```
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$CS_missing <- ifelse(is.na(df_train$TEAM_BASERUN_CS), 1, 0)
+# imputing mean value as a replacement to NA
+df_train$TEAM_BASERUN_CS[is.na(df_train$TEAM_BASERUN_CS)] <- mean(df_train$TEAM_BASERUN_CS, na.rm=TRUE)
+```
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$DP_missing <- ifelse(is.na(df_train$TEAM_FIELDING_DP), 1, 0)
+# imputing mean value as a replacement to NA
+df_train$TEAM_FIELDING_DP[is.na(df_train$TEAM_FIELDING_DP)] <- mean(df_train$TEAM_FIELDING_DP, na.rm=TRUE)
+```
+
+```{r}
+# imputing mean value as a replacement to NA
+df_train$TEAM_BASERUN_SB[is.na(df_train$TEAM_BASERUN_SB)] <- mean(df_train$TEAM_BASERUN_SB, na.rm=TRUE)
+# imputing mean value as a replacement to NA
+df_train$TEAM_BATTING_SO[is.na(df_train$TEAM_BATTING_SO)] <- mean(df_train$TEAM_BATTING_SO, na.rm=TRUE)
+# imputing mean value as a replacement to NA
+df_train$TEAM_PITCHING_SO[is.na(df_train$TEAM_PITCHING_SO)] <- mean(df_train$TEAM_PITCHING_SO, na.rm=TRUE)
+```
+
+```{r}
+df_status(df_train)
+```
+
+Outliers
+```{r}
+
+boxplot(df_train$TEAM_PITCHING_SO)
+boxplot(df_train$TEAM_PITCHING_H)
+boxplot(df_train$TEAM_PITCHING_BB)
+hist(df_train$TEAM_FIELDING_E)
+
+```
+
+John Tukey invented the box-and-whisker plot in 1977 to display IQR values, he picked 1.5×IQR as the demarkation line for outliers. 
+
+```{r}
+# assign the TEAM_PITCHING_SO outliers into a vector
+outliers_SO <- boxplot(df_train$TEAM_PITCHING_SO, plot=FALSE)$out
+# removing TEAM_PITCHING_SO outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_SO %in% outliers_SO),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_SO)
+
+# assign the TEAM_PITCHING_H outlier values into a vector
+outliers_H <- boxplot(df_train$TEAM_PITCHING_H, plot=FALSE)$out
+# removing TEAM_PITCHING_H outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_H %in% outliers_H),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_H)
+
+# assign the TEAM_PITCHING_BB outlier values into a vector
+outliers_BB <- boxplot(df_train$TEAM_PITCHING_BB, plot=FALSE)$out
+# removing TEAM_PITCHING_BB outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_BB %in% outliers_BB),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_BB)
+```
+
+```{r}
+
+df_train$TEAM_FIELDING_E = log10(df_train$TEAM_FIELDING_E)
+hist(df_train$TEAM_FIELDING_E)
+```
+
 
 Do mean imputation
 Add missing data indicators for some variables (3 variables that have >10% missing values)
