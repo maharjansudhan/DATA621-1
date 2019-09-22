@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Load and do initial review of the data.  Need to address missing data.
 
-```{r message = FALSE}
+```{r message = FALSE, warning=FALSE}
 library(tidyverse)
 library(funModeling)
 
@@ -38,7 +38,11 @@ attach(df_train)
 Check distributions of the data; skewness may need to be dealt with transformations. 
 
 ```{r cache = TRUE}
+par(mfrow = c(1, 2))
 hist(df_train$TARGET_WINS)
+qqnorm(df_train$TARGET_WINS)
+qqline(df_train$TARGET_WINS)
+
 #pairs(df_train)
 
 for (j in 2:ncol(df_train)) {
@@ -203,7 +207,21 @@ lm7 <- lm(TARGET_WINS ~ I(TEAM_BATTING_H + TEAM_BATTING_BB) + TEAM_BATTING_HR +
 
 # Model Selection
 
-We start by reviewing summary statistics for the various models.
+In this section, we review the candidate models, select our best model, and predict the response variable for the test dataset.
+
+## Model Evaluation
+
+We start by reviewing summary statistics for each model, including:
+
+* N_Vars: number of predictor variables
+* Sigma: residual standard error 
+* R_Sq: multiple $R^2$
+* Adj_R_Sq: adjusted $R^2$
+* F_P_Val: p-value corresponding to the F-statistic
+* MSE: mean squared error
+* RMSE: root mean squared error.
+
+These statistics are computed based on the training dataset.
 
 ```{r}
 library(knitr)
@@ -217,6 +235,8 @@ sigma <- numeric(nmod)
 rsq <- numeric(nmod)
 adj_rsq <- numeric(nmod)
 fstat_p <- numeric(nmod)
+mse <- numeric(nmod)
+rmse <- numeric(nmod)
 
 for (j in 1:nmod) {
     nvar[j] <- modsums[[j]]$df[1]
@@ -225,31 +245,79 @@ for (j in 1:nmod) {
     adj_rsq[j] <- modsums[[j]]$adj.r.squared
     fstat_p[j] <- 1 - pf(modsums[[j]]$fstatistic[1], modsums[[j]]$fstatistic[2], 
                          modsums[[j]]$fstatistic[3])
+    mse[j] <- mean(modsums[[j]]$residuals^2)
+    rmse[j] <- sqrt(mse[j])
 }
 
 modnames <- paste0("lm", 0:7)
 
 eval <- data.frame(Model = modnames, 
-                   N_Variables = nvar,
-                   Resid_Sigma = sigma,
-                   R_Squared = rsq,
-                   Adj_R_Squared = adj_rsq,
-                   F_P_Value = fstat_p)
+                   N_Vars = nvar,
+                   Sigma = sigma,
+                   R_Sq = rsq,
+                   Adj_R_Sq = adj_rsq,
+                   F_P_Val = fstat_p,
+                   MSE = mse,
+                   RMSE = rmse)
 
-kable(eval, digits = 3, align = 'c', caption = 'Summary Evaluation Statistics')
+kable(eval, digits = 3, align = 'c', caption = 'Model Summary Statistics')
 ```
 
->>> NEED to include MSE, RMSE 
+Based on the summary statistics above, it appears that model [[`lm6`]] has the highest adjusted $R^2$ and lowest RMSE metrics, so we select this as our best model.  
+
+# Model Diagnostics
+
+Let's review the model diagnostics for [[`lm6`]] to ensure that key model assumptions are satisfied:
+
+* Linear relationship between the response and predictor variables
+* Independence of errors
+* Approximately constant variance of errors
+* Approximately normal distribution of errors.
+
+```{r}
+par(mfrow = c(2, 2))
+plot(lm6)
+```
+
+From the residual vs. fitted value chart, it appears that response and predictor variables follow a linear relationship.  From the same chart as well as the square root absolue value residual vs. fited value chart, it appears that the residuals have approximately constant variance.  Finally, the normal Q-Q plot suggests that the residuals are approximately normally distributed.  It is evident from the standardized residual vs. leverage chart that there are outliers in the dataset, which may have high leverage.  
+
+[[depending on model chosen, plot standardized resids vs each predictor variable]]
+
+```{r}
+### show standardized residual vs predictor plots
+detach(df_train)
+```
+
+## Discussion
+
+- selection criteria for best model
+- performance vs. reasonability (review coefficients for intuitiveness)
+- how to make inferences from model
+- multi-collinearity issues
+- other relevant model output
+
+## Predicted Response Values for the Evaluation Dataset
+
+Now that we've chosen our best model [[`lm6`]], we can use it to predict the number of wins for the evaluation dataset.  First we have to prepare the dataset using the same procedure followed above for the training dataset, in order to run it through the model. 
 
 ```{r}
 str(df_test)
 head(df_test)
+summary(df_test)
 
+# prep data
+
+# use predict function
+
+# save csv file
 ```
 
+# Suggestions for Further Work
 
-    
-detach(df_train)
+* Investigate outliers; some may be data errors
+* Explore other variable transformations; e.g., try Box-Cox
 
-```
+
+
+
 
