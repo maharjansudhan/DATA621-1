@@ -162,12 +162,17 @@ Suggest organizing the models we show:
 - Do step-by-step variable elimination: at each step, drop the variable that is not signif; stop when all variables are signif at 5%
 - Try models with transformed variables: (a) try log or sqrt transform for skewed variables; (b) try aggregating related variables
 
+Model lm0 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors was based on creating a model that had 4 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model fitted with these predictors produced 2 variables (TEAM_BATTING_H, TEAM_BATTING_BB) that are statically significant. The coefficients in this model are mostly positive except for TEAM_BASERUN_CS which makes sense since caught stealing will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.3819, an adjusted $R^2$ of 0.3652, an F-statistic of 22.86, and a p-value of <2.2e-16
+
 ```{r}
 
 lm0 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP + 
               TEAM_BASERUN_SB + TEAM_BASERUN_CS)
 (lm0sum <- summary(lm0))
 
+```
+
+```{r}
 lm1 <- lm(TARGET_WINS ~ I(TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP) + 
               I(TEAM_BASERUN_SB - TEAM_BASERUN_CS))
 (lm1sum <- summary(lm1))
@@ -184,6 +189,17 @@ lm3a <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB +
                TEAM_BATTING_SO)
 (lm3asum <- summary(lm3a))
 
+```
+
+Model lm3b has 6 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors was based on creating a model that had 6 predictors with a positive impact on wins (TARGET_WINS) that has to do with a team's batting performance. This linear regression model fitted with these predictors produced 3 variables (TEAM_BATTING_HR, TEAM_BATTING_BB, TEAM_BATTING_SO) that are statically significant. The coefficients in this model are mostly positive except for TEAM_BATTING_SO which makes sense since strike outs by batters (TEAM_BATTING_SO) will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.4539, an adjusted $R^2$ of 0.4361, an F-statistic of 25.49, and a p-value of <2.2e-16
+
+```{r}
+lm3b <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B +
+              TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BATTING_HBP)
+(lm3bsum <- summary(lm3b))
+```
+
+```{r}
 lm4 <- lm(TARGET_WINS ~ TEAM_BASERUN_SB + TEAM_BASERUN_CS + TEAM_FIELDING_E +
               TEAM_FIELDING_DP)
 (lm4sum <- summary(lm4))
