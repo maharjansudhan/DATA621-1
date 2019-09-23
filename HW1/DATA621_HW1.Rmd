@@ -162,62 +162,110 @@ Suggest organizing the models we show:
 - Do step-by-step variable elimination: at each step, drop the variable that is not signif; stop when all variables are signif at 5%
 - Try models with transformed variables: (a) try log or sqrt transform for skewed variables; (b) try aggregating related variables
 
-Model lm0 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors was based on creating a model that had 4 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model fitted with these predictors produced 2 variables (TEAM_BATTING_H, TEAM_BATTING_BB) that are statically significant. The coefficients in this model are mostly positive except for TEAM_BASERUN_CS which makes sense since caught stealing will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.3819, an adjusted $R^2$ of 0.3652, an F-statistic of 22.86, and a p-value of <2.2e-16
+##Model lm0
+Model lm0 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors were based on creating a model that had 4 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model fitted with these predictors produced 2 variables (TEAM_BATTING_H, TEAM_BATTING_BB) that are statistically significant. The coefficients in this model are mostly positive except for TEAM_BASERUN_CS which makes sense since caught stealing will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.3819, an adjusted $R^2$ of 0.3652, an F-statistic of 22.86, and a p-value of <2.2e-16
 
 ```{r}
-
-lm0 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP + 
-              TEAM_BASERUN_SB + TEAM_BASERUN_CS)
+#generating Model lm0 the base model
+lm0 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP + TEAM_BASERUN_SB + TEAM_BASERUN_CS)
 (lm0sum <- summary(lm0))
-
 ```
 
-```{r}
-lm1 <- lm(TARGET_WINS ~ I(TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP) + 
-              I(TEAM_BASERUN_SB - TEAM_BASERUN_CS))
-(lm1sum <- summary(lm1))
+##Model lm1
+Model lm1 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors were based on creating a model that had 3 predictors with a positive (direct) impact on wins (TARGET_WINS) and 2 predictor with a indirect(positive and negative) impact on wins. This linear regression model fitted with these predictors produced 3 variables (TEAM_BATTING_H, TEAM_BATTING_BB, TEAM_BATTING_HBP) that are statistically significant. Additionally, this model has a multiple $R^2$ of 0.3757, an adjusted $R^2$ of 0.3691, an F-statistic of 56.58, and a p-value of <2.2e-16
 
+```{r}
+#generating Model lm1
+a <- I(TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP)
+b <- (TEAM_BASERUN_SB - TEAM_BASERUN_CS)
+lm1 <- lm(TARGET_WINS ~  a + b)
+(lm1sum <- summary(lm1))
+```
+
+##Model lm2
+Model lm2 has also 7 predictor variables with 4 variables that impacts positively to win the game and 3 negative variable. All missing values (NA's) were replaced with the mean value of that associated predictor. The coefficients in this model are positive for TEAM_BATTING_H, TEAM_BATTING_BB, TEAM_BASERUN_SB, TEAM_PITCHING_H and negative for TEAM_FIELDING_E, TEAM_PITCHING_BB, TEAM_PITCHING_SO. Additionally, this model has a multiple $R^2$ of 0.325, an adjusted $R^2$ of 0.3227, an F-statistic of 140, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm2 
 lm2 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BASERUN_SB + 
               TEAM_FIELDING_E + TEAM_PITCHING_H + TEAM_PITCHING_BB + TEAM_PITCHING_SO)
 (lm2sum <- summary(lm2))
+```
 
+##Model lm3
+Model lm3 has 7 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 6 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model produced 5 variables with positive values (TEAM_BATTING_H, TEAM_BATTING_2B, TEAM_BATTING_HR, TEAM_BATTING_BB,TEAM_BATTING_HBP). Even though TEAM_BATTING_3B has a postive impact on wins, here it is giving a negative value because 3rd base is called a 'Hot Corner'.One of the reason is that the third baseman has to make the longest infield throw to nail a runner at first base and third basemen are also responsible for bunts down the third baseline. The coefficients in this model for all positive variables are mostly positive except for TEAM_BATTING_3B and negative value for TEAM_BATTING_SO which sounds right because it is a strikeout by batters. Additionally, this model has a multiple $R^2$ of 0.4613, an adjusted $R^2$ of 0.4407, an F-statistic of 22.38, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm3
 lm3 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_3B +
               TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BATTING_HBP)
 (lm3sum <- summary(lm3))
-
-lm3a <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + 
-               TEAM_BATTING_SO)
-(lm3asum <- summary(lm3a))
-
 ```
+
+
+##Model lm3a
+Model lm3a has 4 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 3 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model produced all positive values for the variables TEAM_BATTING_H, TEAM_BATTING_HR, TEAM_BATTING_BB including the TEAM_BATTING_SO which has a negative impact on wins. This model mostly focuses on the batters making generating points either by base hits, homeruns or walks by the batters. This model has a multiple $R^2$ of 0.2399, an adjusted $R^2$ of 0.2385, an F-statistic of 171.1, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm3a
+lm3a <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO)
+(lm3asum <- summary(lm3a))
+```
+
+##Model lm3b
 
 Model lm3b has 6 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors was based on creating a model that had 6 predictors with a positive impact on wins (TARGET_WINS) that has to do with a team's batting performance. This linear regression model fitted with these predictors produced 3 variables (TEAM_BATTING_HR, TEAM_BATTING_BB, TEAM_BATTING_SO) that are statically significant. The coefficients in this model are mostly positive except for TEAM_BATTING_SO which makes sense since strike outs by batters (TEAM_BATTING_SO) will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.4539, an adjusted $R^2$ of 0.4361, an F-statistic of 25.49, and a p-value of <2.2e-16
 
 ```{r}
-lm3b <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B +
-              TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BATTING_HBP)
+#generating Model lm3b
+lm3b <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BATTING_HBP)
 (lm3bsum <- summary(lm3b))
 ```
 
+
+##Model lm4
+
+Model lm4 has 4 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 2 predictors with a positive impact on wins (TARGET_WINS) and 2 predictor with a negative impact on wins. This linear regression model produced positive values for the variables TEAM_BASERUN_SB and TEAM_BASERUN_CS but it calculated a very strong negative value for TEAM_FIELDING_E. This model has a multiple $R^2$ of 0.08123, an adjusted $R^2$ of 0.07875, an F-statistic of 32.73, and a p-value of <2.2e-16
+
 ```{r}
-lm4 <- lm(TARGET_WINS ~ TEAM_BASERUN_SB + TEAM_BASERUN_CS + TEAM_FIELDING_E +
-              TEAM_FIELDING_DP)
+#generating Model lm3b
+lm4 <- lm(TARGET_WINS ~ TEAM_BASERUN_SB + TEAM_BASERUN_CS + TEAM_FIELDING_E + TEAM_FIELDING_DP)
 (lm4sum <- summary(lm4))
+```
 
-lm5 <- lm(TARGET_WINS ~ TEAM_PITCHING_H + TEAM_PITCHING_HR + TEAM_PITCHING_BB +
-              TEAM_PITCHING_SO)
+
+##Model lm5
+
+Model lm5 has 4 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 1 predictors with a positive impact on wins (TARGET_WINS) and 3 predictor with a negative impact on wins. According to the calculation, this model doesn't seem that strong on either winning or loosing the game. This model has a multiple $R^2$ of 0.09056, an adjusted $R^2$ of 0.08888, an F-statistic of 54, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm5
+lm5 <- lm(TARGET_WINS ~ TEAM_PITCHING_H + TEAM_PITCHING_HR + TEAM_PITCHING_BB + TEAM_PITCHING_SO)
 (lm5sum <- summary(lm5))
+```
 
-lm6 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + 
-              TEAM_BATTING_SO + TEAM_BASERUN_SB + TEAM_FIELDING_E + 
-              TEAM_PITCHING_H + TEAM_PITCHING_HR + TEAM_PITCHING_BB)
+
+##Model lm6
+
+Model lm6 has 9 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 4 predictors with a positive impact on wins (TARGET_WINS) and 5 predictor with a negative impact on wins. This linear regression model generated positive values for the variables TEAM_BATTING_H, TEAM_BATTING_HR, TEAM_BATTING_BB, TEAM_BASERUN_SB, TEAM_PITCHING_H, TEAM_PITCHING_HR and negative vales for TEAM_BATTING_SO, TEAM_FIELDING_E and TEAM_PITCHING_BB. This model has a multiple $R^2$ of 0.3446, an adjusted $R^2$ of 0.3417, an F-statistic of 118.8, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm6
+lm6 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BASERUN_SB + TEAM_FIELDING_E + TEAM_PITCHING_H + TEAM_PITCHING_HR + TEAM_PITCHING_BB)
 (lm6sum <- summary(lm6))
+```
 
+
+##Model lm7
+##Didn't know how to do this one
+Model lm7 has 9 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This linear regression model generated positive values for the variables TEAM_BATTING_H, TEAM_BATTING_HR, TEAM_BATTING_BB, TEAM_BASERUN_SB, TEAM_PITCHING_H, TEAM_PITCHING_HR and negative vales for TEAM_BATTING_SO, TEAM_FIELDING_E and TEAM_PITCHING_BB. This model has a multiple $R^2$ of 0.3222, an adjusted $R^2$ of 0.3195, an F-statistic of 118.6, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm7
 lm7 <- lm(TARGET_WINS ~ I(TEAM_BATTING_H + TEAM_BATTING_BB) + TEAM_BATTING_HR + 
               I(TEAM_BASERUN_SB - TEAM_BASERUN_CS) + TEAM_FIELDING_E +
               I(TEAM_PITCHING_H + TEAM_PITCHING_BB) + TEAM_PITCHING_HR)
 (lm7sum <- summary(lm7))
-
 ```
 
 
