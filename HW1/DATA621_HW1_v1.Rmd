@@ -1,0 +1,392 @@
+---
+title: "DATA 621 Homework #1"
+author: "Calvin, Juanelle, Kevin, Ravi, Sudhan"
+date: "9/25/2019"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+        theme: lumen
+        number_sections: TRUE
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Exploration
+
+Load and do initial review of the data.  Need to address missing data.
+
+```{r message = FALSE, warning=FALSE}
+library(tidyverse)
+library(funModeling)
+
+gh <- "https://raw.githubusercontent.com/kecbenson/DATA621/master/HW1/"
+file_train <- paste0(gh, "moneyball-training-data.csv")
+file_test <- paste0(gh, "moneyball-evaluation-data.csv")
+
+df_train <- read_csv(file_train)
+df_test <- read_csv(file_test)
+
+head(df_train)
+str(df_train)
+summary(df_train)
+attach(df_train)
+```
+
+Check distributions of the data; skewness may need to be dealt with transformations. 
+
+```{r cache = TRUE}
+par(mfrow = c(1, 2))
+hist(df_train$TARGET_WINS)
+qqnorm(df_train$TARGET_WINS)
+qqline(df_train$TARGET_WINS)
+
+#pairs(df_train)
+
+for (j in 2:ncol(df_train)) {
+    hist(df_train[[j]], main = paste0("Histogram of ", colnames(df_train)[j]),
+         xlab = colnames(df_train)[j], freq = FALSE)
+    minval <- min(df_train[[j]], na.rm = TRUE)
+    maxval <- max(df_train[[j]], na.rm = TRUE)
+    meanval <- mean(df_train[[j]], na.rm = TRUE)
+    sdval <- sd(df_train[[j]], na.rm = TRUE)
+    grid <- minval:maxval
+    lines(grid, dnorm(grid, mean = meanval, sd = sdval), lty = 3)
+    
+}
+```
+
+Review pair-wise relationships between predictor variables and target variable.
+
+```{r cache = TRUE}
+# batting variables (hits through home runs)
+pairs(df_train[2:6])
+# batting variables (walks, strikeouts, hit by pitch)
+pairs(df_train[c(2, 7:8, 11)])
+# baserun and fielding variables
+pairs(df_train[c(2, 9:10, 16:17)])
+# pitching variables
+pairs(df_train[c(2, 12:15)])
+```
+
+
+# Data Preparation
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$HBP_missing <- ifelse(is.na(df_train$TEAM_BATTING_HBP), 1, 0)
+# imputing mean value as a replacement to NA
+df_train$TEAM_BATTING_HBP[is.na(df_train$TEAM_BATTING_HBP)] <- mean(df_train$TEAM_BATTING_HBP, na.rm=TRUE)
+```
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$CS_missing <- ifelse(is.na(df_train$TEAM_BASERUN_CS), 1, 0)
+# imputing mean value as a replacement to NA
+df_train$TEAM_BASERUN_CS[is.na(df_train$TEAM_BASERUN_CS)] <- mean(df_train$TEAM_BASERUN_CS, na.rm=TRUE)
+```
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$DP_missing <- ifelse(is.na(df_train$TEAM_FIELDING_DP), 1, 0)
+# imputing mean value as a replacement to NA
+df_train$TEAM_FIELDING_DP[is.na(df_train$TEAM_FIELDING_DP)] <- mean(df_train$TEAM_FIELDING_DP, na.rm=TRUE)
+```
+
+```{r}
+# imputing mean value as a replacement to NA
+df_train$TEAM_BASERUN_SB[is.na(df_train$TEAM_BASERUN_SB)] <- mean(df_train$TEAM_BASERUN_SB, na.rm=TRUE)
+# imputing mean value as a replacement to NA
+df_train$TEAM_BATTING_SO[is.na(df_train$TEAM_BATTING_SO)] <- mean(df_train$TEAM_BATTING_SO, na.rm=TRUE)
+# imputing mean value as a replacement to NA
+df_train$TEAM_PITCHING_SO[is.na(df_train$TEAM_PITCHING_SO)] <- mean(df_train$TEAM_PITCHING_SO, na.rm=TRUE)
+```
+
+```{r}
+df_status(df_train)
+```
+
+Outliers
+```{r}
+
+boxplot(df_train$TEAM_PITCHING_SO)
+boxplot(df_train$TEAM_PITCHING_H)
+boxplot(df_train$TEAM_PITCHING_BB)
+hist(df_train$TEAM_FIELDING_E)
+
+```
+
+John Tukey invented the box-and-whisker plot in 1977 to display IQR values, he picked 1.5×IQR as the demarkation line for outliers. 
+
+```{r}
+# assign the TEAM_PITCHING_SO outliers into a vector
+outliers_SO <- boxplot(df_train$TEAM_PITCHING_SO, plot=FALSE)$out
+# removing TEAM_PITCHING_SO outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_SO %in% outliers_SO),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_SO)
+
+# assign the TEAM_PITCHING_H outlier values into a vector
+outliers_H <- boxplot(df_train$TEAM_PITCHING_H, plot=FALSE)$out
+# removing TEAM_PITCHING_H outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_H %in% outliers_H),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_H)
+
+# assign the TEAM_PITCHING_BB outlier values into a vector
+outliers_BB <- boxplot(df_train$TEAM_PITCHING_BB, plot=FALSE)$out
+# removing TEAM_PITCHING_BB outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_BB %in% outliers_BB),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_BB)
+```
+
+```{r}
+
+df_train$TEAM_FIELDING_E = log10(df_train$TEAM_FIELDING_E)
+hist(df_train$TEAM_FIELDING_E)
+```
+
+# Model Building
+
+Sample models - note that I haven't dealt with the missing values yet, so stats below are not right.
+
+Suggest organizing the models we show:
+
+* Kitchen sink model: use all variables at once
+* Do step-by-step variable elimination: at each step, drop the variable that is not signif; stop when all variables are signif at 5%
+* Try models with transformed variables: (a) try log or sqrt transform for skewed variables; (b) try aggregating related variables
+
+## Model lm0
+
+Model lm0 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors were based on creating a model that had 4 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model fitted with these predictors produced 2 variables (TEAM_BATTING_H, TEAM_BATTING_BB) that are statistically significant. The coefficients in this model are mostly positive except for TEAM_BASERUN_CS which makes sense since caught stealing will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.3819, an adjusted $R^2$ of 0.3652, an F-statistic of 22.86, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm0 the base model
+lm0 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP + TEAM_BASERUN_SB + TEAM_BASERUN_CS)
+(lm0sum <- summary(lm0))
+```
+
+## Model lm1
+
+Model lm1 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors were based on creating a model that had 3 predictors with a positive (direct) impact on wins (TARGET_WINS) and 2 predictor with a indirect(positive and negative) impact on wins. This linear regression model fitted with these predictors produced 3 variables (TEAM_BATTING_H, TEAM_BATTING_BB, TEAM_BATTING_HBP) that are statistically significant. Additionally, this model has a multiple $R^2$ of 0.3757, an adjusted $R^2$ of 0.3691, an F-statistic of 56.58, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm1
+a <- I(TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP)
+b <- (TEAM_BASERUN_SB - TEAM_BASERUN_CS)
+lm1 <- lm(TARGET_WINS ~  a + b)
+(lm1sum <- summary(lm1))
+```
+
+## Model lm2
+
+Model lm2 has also 7 predictor variables with 4 variables that impacts positively to win the game and 3 negative variable. All missing values (NA's) were replaced with the mean value of that associated predictor. The coefficients in this model are positive for TEAM_BATTING_H, TEAM_BATTING_BB, TEAM_BASERUN_SB, TEAM_PITCHING_H and negative for TEAM_FIELDING_E, TEAM_PITCHING_BB, TEAM_PITCHING_SO. Additionally, this model has a multiple $R^2$ of 0.325, an adjusted $R^2$ of 0.3227, an F-statistic of 140, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm2 
+lm2 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BASERUN_SB + 
+              TEAM_FIELDING_E + TEAM_PITCHING_H + TEAM_PITCHING_BB + TEAM_PITCHING_SO)
+(lm2sum <- summary(lm2))
+```
+
+## Model lm3
+
+Model lm3 has 7 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 6 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model produced 5 variables with positive values (TEAM_BATTING_H, TEAM_BATTING_2B, TEAM_BATTING_HR, TEAM_BATTING_BB,TEAM_BATTING_HBP). Even though TEAM_BATTING_3B has a postive impact on wins, here it is giving a negative value because 3rd base is called a 'Hot Corner'.One of the reason is that the third baseman has to make the longest infield throw to nail a runner at first base and third basemen are also responsible for bunts down the third baseline. The coefficients in this model for all positive variables are mostly positive except for TEAM_BATTING_3B and negative value for TEAM_BATTING_SO which sounds right because it is a strikeout by batters. Additionally, this model has a multiple $R^2$ of 0.4613, an adjusted $R^2$ of 0.4407, an F-statistic of 22.38, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm3
+lm3 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_3B +
+              TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BATTING_HBP)
+(lm3sum <- summary(lm3))
+```
+
+## Model lm3a
+
+Model lm3a has 4 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 3 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model produced all positive values for the variables TEAM_BATTING_H, TEAM_BATTING_HR, TEAM_BATTING_BB including the TEAM_BATTING_SO which has a negative impact on wins. This model mostly focuses on the batters making generating points either by base hits, homeruns or walks by the batters. This model has a multiple $R^2$ of 0.2399, an adjusted $R^2$ of 0.2385, an F-statistic of 171.1, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm3a
+lm3a <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO)
+(lm3asum <- summary(lm3a))
+```
+
+## Model lm3b
+
+Model lm3b has 6 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors was based on creating a model that had 6 predictors with a positive impact on wins (TARGET_WINS) that has to do with a team's batting performance. This linear regression model fitted with these predictors produced 3 variables (TEAM_BATTING_HR, TEAM_BATTING_BB, TEAM_BATTING_SO) that are statically significant. The coefficients in this model are mostly positive except for TEAM_BATTING_SO which makes sense since strike outs by batters (TEAM_BATTING_SO) will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.4539, an adjusted $R^2$ of 0.4361, an F-statistic of 25.49, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm3b
+lm3b <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BATTING_HBP)
+(lm3bsum <- summary(lm3b))
+```
+
+## Model lm4
+
+Model lm4 has 4 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 2 predictors with a positive impact on wins (TARGET_WINS) and 2 predictor with a negative impact on wins. This linear regression model produced positive values for the variables TEAM_BASERUN_SB and TEAM_BASERUN_CS but it calculated a very strong negative value for TEAM_FIELDING_E. This model has a multiple $R^2$ of 0.08123, an adjusted $R^2$ of 0.07875, an F-statistic of 32.73, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm3b
+lm4 <- lm(TARGET_WINS ~ TEAM_BASERUN_SB + TEAM_BASERUN_CS + TEAM_FIELDING_E + TEAM_FIELDING_DP)
+(lm4sum <- summary(lm4))
+```
+
+## Model lm5
+
+Model lm5 has 4 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 1 predictors with a positive impact on wins (TARGET_WINS) and 3 predictor with a negative impact on wins. According to the calculation, this model doesn't seem that strong on either winning or loosing the game. This model has a multiple $R^2$ of 0.09056, an adjusted $R^2$ of 0.08888, an F-statistic of 54, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm5
+lm5 <- lm(TARGET_WINS ~ TEAM_PITCHING_H + TEAM_PITCHING_HR + TEAM_PITCHING_BB + TEAM_PITCHING_SO)
+(lm5sum <- summary(lm5))
+```
+
+## Model lm6
+
+Model lm6 has 9 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 4 predictors with a positive impact on wins (TARGET_WINS) and 5 predictor with a negative impact on wins. This linear regression model generated positive values for the variables TEAM_BATTING_H, TEAM_BATTING_HR, TEAM_BATTING_BB, TEAM_BASERUN_SB, TEAM_PITCHING_H, TEAM_PITCHING_HR and negative vales for TEAM_BATTING_SO, TEAM_FIELDING_E and TEAM_PITCHING_BB. This model has a multiple $R^2$ of 0.3446, an adjusted $R^2$ of 0.3417, an F-statistic of 118.8, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm6
+lm6 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BASERUN_SB + TEAM_FIELDING_E + TEAM_PITCHING_H + TEAM_PITCHING_HR + TEAM_PITCHING_BB)
+(lm6sum <- summary(lm6))
+```
+
+## Model lm7
+
+##Didn't know how to do this one
+
+Model lm7 has 9 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This linear regression model generated positive values for the variables TEAM_BATTING_H, TEAM_BATTING_HR, TEAM_BATTING_BB, TEAM_BASERUN_SB, TEAM_PITCHING_H, TEAM_PITCHING_HR and negative vales for TEAM_BATTING_SO, TEAM_FIELDING_E and TEAM_PITCHING_BB. This model has a multiple $R^2$ of 0.3222, an adjusted $R^2$ of 0.3195, an F-statistic of 118.6, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm7
+lm7 <- lm(TARGET_WINS ~ I(TEAM_BATTING_H + TEAM_BATTING_BB) + TEAM_BATTING_HR + 
+              I(TEAM_BASERUN_SB - TEAM_BASERUN_CS) + TEAM_FIELDING_E +
+              I(TEAM_PITCHING_H + TEAM_PITCHING_BB) + TEAM_PITCHING_HR)
+(lm7sum <- summary(lm7))
+```
+
+# Model Evaluation
+
+We start by reviewing summary statistics for each model, including:
+
+* N_Vars: number of predictor variables
+* Sigma: residual standard error 
+* R_Sq: multiple $R^2$
+* Adj_R_Sq: adjusted $R^2$
+* F_P_Val: p-value corresponding to the F-statistic
+* MSE: mean squared error
+* RMSE: root mean squared error.
+
+These statistics are computed based on the training dataset.
+
+```{r}
+library(knitr)
+
+models <- list(lm0, lm1, lm2, lm3, lm4, lm5, lm6, lm7)
+modsums <- list(lm0sum, lm1sum, lm2sum, lm3sum, lm4sum, lm5sum, lm6sum, lm7sum)
+nmod <- length(modsums)
+
+nvar <- integer(nmod)
+sigma <- numeric(nmod)
+rsq <- numeric(nmod)
+adj_rsq <- numeric(nmod)
+fstat_p <- numeric(nmod)
+mse <- numeric(nmod)
+rmse <- numeric(nmod)
+
+for (j in 1:nmod) {
+    nvar[j] <- modsums[[j]]$df[1]
+    sigma[j] <- modsums[[j]]$sigma
+    rsq[j] <- modsums[[j]]$r.squared
+    adj_rsq[j] <- modsums[[j]]$adj.r.squared
+    fstat_p[j] <- 1 - pf(modsums[[j]]$fstatistic[1], modsums[[j]]$fstatistic[2], 
+                         modsums[[j]]$fstatistic[3])
+    mse[j] <- mean(modsums[[j]]$residuals^2)
+    rmse[j] <- sqrt(mse[j])
+}
+
+modnames <- paste0("lm", 0:7)
+
+eval <- data.frame(Model = modnames, 
+                   N_Vars = nvar,
+                   Sigma = sigma,
+                   R_Sq = rsq,
+                   Adj_R_Sq = adj_rsq,
+                   F_P_Val = fstat_p,
+                   MSE = mse,
+                   RMSE = rmse)
+
+kable(eval, digits = 3, align = 'c', caption = 'Model Summary Statistics')
+```
+
+Based on the summary statistics above, it appears that model [[`lm6`]] has the highest adjusted $R^2$ and lowest RMSE metrics, so we select this as our best model.  
+
+## Model Diagnostics
+
+Let's review the model diagnostics for [[`lm6`]] to ensure that key model assumptions are satisfied:
+
+* Linear relationship between the response and predictor variables
+* Independence of errors
+* Approximately constant variance of errors
+* Approximately normal distribution of errors.
+
+```{r}
+par(mfrow = c(2, 2))
+plot(lm6)
+```
+
+From the residual vs. fitted value chart, it appears that response and predictor variables follow a linear relationship.  From the same chart as well as the square root absolue value residual vs. fited value chart, it appears that the residuals have approximately constant variance.  Finally, the normal Q-Q plot suggests that the residuals are approximately normally distributed.  It is evident from the standardized residual vs. leverage chart that there are outliers in the dataset, which may have high leverage.  
+
+[[depending on model chosen, plot standardized resids vs each predictor variable]]
+
+```{r}
+### show standardized residual vs predictor plots
+
+detach(df_train)
+```
+
+## Discussion
+
+- selection criteria for best model
+- performance vs. reasonability (review coefficients for intuitiveness)
+- how to make inferences from model
+- multi-collinearity issues
+- other relevant model output
+
+## Predicted Wins for the Evaluation Dataset
+
+Now that we've chosen our best model [[`lm6`]], we can use it to predict the number of wins for the evaluation dataset.  First we have to prepare the dataset using the same procedure followed above for the training dataset, in order to run it through the model.  In particular, we use mean imputation to substitute for any NA values.  Then we use [[`lm6`]] to predict the target values (number of wins) and save this to disk. 
+
+```{r}
+str(df_test)
+head(df_test)
+summary(df_test)
+
+# prep data - same as for training dataset - fix NA's
+colavg <- colMeans(df_test, na.rm = TRUE)
+df_test_prep <- df_test
+for (j in 2:ncol(df_test))
+    df_test_prep[is.na(df_test[ , j]), j] <- colavg[j]
+
+# use predict function
+predictions <- predict(lm6, newdata = df_test_prep)
+df_pred <- cbind(df_test, PREDICT_WINS = predictions)
+
+str(df_pred)
+head(df_pred)
+
+# save csv file
+write_csv(df_pred, "moneyball-predictions.csv")
+```
+
+# Suggestions for Further Work
+
+* Investigate outliers; some may be data errors
+* Explore other variable transformations; e.g., try Box-Cox
+
+
+
+
+
