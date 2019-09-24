@@ -74,51 +74,91 @@ pairs(df_train[c(2, 12:15)])
 
 # Data Preparation
 
+Data preparation is a pre-processing step that involves cleansing, transforming, and consolidating data. Our first step in the data preparation process was to identify what variables needed to be manipulated within the dataset. We utilize the funModeling package for this purpose. This package contains a set of functions related to exploratory data analysis, data preparation, and model performance. funModeling is intimately related to the Data Science Live Book -Open Source- (2017). Here, funModeling df_status(), is being used to  analyze the zeros, missing values (NA), infinity, data type, and number of unique values for a given dataset.
+
+```{r}
+# df_status function to show zero's and missing values
+train_data_status <- df_status(df_train, print_results=FALSE) 
+# order by percentage of missing values
+train_data_status[order(-train_data_status$p_na),]
+```
+
+With this particular dataset, using the df_status(), we identified our biggest challenge was to deal with NA's. There was a minimal amount of zero's which accounted for less than one percent of the dataset for any variable. Therefore, we decided to focus on NA's. We ordered the percentage of NA's and identified these variables to be transformed using different imputation methods to be discussed below. 
+
+TEAM_BATTING_HBP	
+TEAM_BASERUN_CS	
+TEAM_FIELDING_DP	
+TEAM_BASERUN_SB	
+TEAM_BATTING_SO
+TEAM_PITCHING_SO
+
+We decided to use mean imputation on all variables, however, for variables above ten percent (10%) threshold we included the use of a dummy variable to identify if an NA is present. The three variables with a dummy variable are TEAM_BATTING_HBP, TEAM_BASERUN_CS, and TEAM_FIELDING_DP.
+
+Creating a dummy variable called HBP_missing which triggers "1"" if TEAM_BATTING_HBP value is NA and "0" if not. Imputing mean value on all NA's.
+
 ```{r}
 # trigger a dummy variable if NA is present
 df_train$HBP_missing <- ifelse(is.na(df_train$TEAM_BATTING_HBP), 1, 0)
-# imputing mean value as a replacement to NA
+# imputing NA to mean
 df_train$TEAM_BATTING_HBP[is.na(df_train$TEAM_BATTING_HBP)] <- mean(df_train$TEAM_BATTING_HBP, na.rm=TRUE)
 ```
 
+Creating a dummy variable called CS_missing which triggers "1" if TEAM_BASERUN_CS value is NA and "0" if not. Imputing mean value on all NA's.
 ```{r}
 # trigger a dummy variable if NA is present
 df_train$CS_missing <- ifelse(is.na(df_train$TEAM_BASERUN_CS), 1, 0)
-# imputing mean value as a replacement to NA
+# imputing NA to mean
 df_train$TEAM_BASERUN_CS[is.na(df_train$TEAM_BASERUN_CS)] <- mean(df_train$TEAM_BASERUN_CS, na.rm=TRUE)
 ```
 
+Creating a dummy variable called DP_missing which triggers "1" if TEAM_FIELDING_DP value is NA and "0" if not. Imputing mean value on all NA's.
 ```{r}
 # trigger a dummy variable if NA is present
 df_train$DP_missing <- ifelse(is.na(df_train$TEAM_FIELDING_DP), 1, 0)
-# imputing mean value as a replacement to NA
+# imputing NA to mean
 df_train$TEAM_FIELDING_DP[is.na(df_train$TEAM_FIELDING_DP)] <- mean(df_train$TEAM_FIELDING_DP, na.rm=TRUE)
 ```
 
+These variables fall under the ten percent (10%) threshold. No dummy variables will be utilized, mean imputation will be used for all NA's.
 ```{r}
 # imputing mean value as a replacement to NA
 df_train$TEAM_BASERUN_SB[is.na(df_train$TEAM_BASERUN_SB)] <- mean(df_train$TEAM_BASERUN_SB, na.rm=TRUE)
-# imputing mean value as a replacement to NA
 df_train$TEAM_BATTING_SO[is.na(df_train$TEAM_BATTING_SO)] <- mean(df_train$TEAM_BATTING_SO, na.rm=TRUE)
-# imputing mean value as a replacement to NA
 df_train$TEAM_PITCHING_SO[is.na(df_train$TEAM_PITCHING_SO)] <- mean(df_train$TEAM_PITCHING_SO, na.rm=TRUE)
 ```
 
+We can see that all NA's are addressed after imputation methods.
 ```{r}
+# results after imputation, we see all NA's are addressed
 df_status(df_train)
 ```
 
 Outliers
+
+Our next step is to deal with outliers identified within the data distribution section. We identified four variables which needed to be worked. 
+
+TEAM_PITCHING_SO
+TEAM_PITCHING_H
+TEAM_PITCHING_BB
+TEAM_FIELDING_E
+
+We identified through boxplots which variables are impacted with outliers. Secondly, TEAM_FIELDING_E shows the potential of applying transformation to retain all data points.
+
 ```{r}
-
+# reviewing outliers
 boxplot(df_train$TEAM_PITCHING_SO)
+# reviewing outliers
 boxplot(df_train$TEAM_PITCHING_H)
+# reviewing outliers
 boxplot(df_train$TEAM_PITCHING_BB)
+# determining opportunity for transformation
 hist(df_train$TEAM_FIELDING_E)
-
 ```
 
 John Tukey invented the box-and-whisker plot in 1977 to display IQR values, he picked 1.5×IQR as the demarkation line for outliers. 
+Based on John Tukey box-and-whisker plot to display IQR values, he picked 1.5×IQR as the demarkation line for outliers. We will retain this approach and remove outliers for TEAM_PITCHING_SO, TEAM_PITCHING_H, and TEAM_PITCHING_BB. We removed a total of 285 records which accounts for approximately 12.5% of the total dataset. 
+
+We then boxploted these variables again to demonstrate normalization.
 
 ```{r}
 # assign the TEAM_PITCHING_SO outliers into a vector
@@ -143,11 +183,15 @@ df_train <- df_train[-which(df_train$TEAM_PITCHING_BB %in% outliers_BB),]
 boxplot(df_train$TEAM_PITCHING_BB)
 ```
 
-```{r}
+For the fourth variable, TEAM_FIELDING_E, we transformed the data using log 10 transformation. The data is still skewed, however, shows much improvement from the original variable. We deduct that this transformation is adequate and will retain this method of transformation.
 
+```{r}
+# performing log 10 transformation
 df_train$TEAM_FIELDING_E = log10(df_train$TEAM_FIELDING_E)
+# determining distribution of data
 hist(df_train$TEAM_FIELDING_E)
 ```
+We are now ready to proceed with regression model building.
 
 # Model Building
 
