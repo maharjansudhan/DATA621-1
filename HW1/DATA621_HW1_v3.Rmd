@@ -1,0 +1,461 @@
+---
+title: "DATA 621 Homework #1"
+author: "Calvin Wong, Juanelle Marks, Kevin Benson, Ravi Itwaru, Sudhan Maharjan"
+date: "9/25/2019"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+        theme: lumen
+        number_sections: TRUE
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Exploration
+
+Load and do initial review of the data.  Need to address missing data.
+
+```{r message = FALSE, warning=FALSE}
+library(tidyverse)
+library(funModeling)
+
+gh <- "https://raw.githubusercontent.com/kecbenson/DATA621/master/HW1/"
+file_train <- paste0(gh, "moneyball-training-data.csv")
+file_test <- paste0(gh, "moneyball-evaluation-data.csv")
+
+df_train <- read_csv(file_train)
+df_test <- read_csv(file_test)
+
+head(df_train)
+str(df_train)
+summary(df_train)
+```
+
+Check distributions of the data; skewness may need to be dealt with transformations. 
+
+```{r cache = TRUE}
+par(mfrow = c(1, 2))
+hist(df_train$TARGET_WINS)
+qqnorm(df_train$TARGET_WINS)
+qqline(df_train$TARGET_WINS)
+
+#pairs(df_train)
+
+for (j in 2:ncol(df_train)) {
+    hist(df_train[[j]], main = paste0("Histogram of ", colnames(df_train)[j]),
+         xlab = colnames(df_train)[j], freq = FALSE)
+    minval <- min(df_train[[j]], na.rm = TRUE)
+    maxval <- max(df_train[[j]], na.rm = TRUE)
+    meanval <- mean(df_train[[j]], na.rm = TRUE)
+    sdval <- sd(df_train[[j]], na.rm = TRUE)
+    grid <- minval:maxval
+    lines(grid, dnorm(grid, mean = meanval, sd = sdval), lty = 3)
+    
+}
+```
+
+Review pair-wise relationships between predictor variables and target variable.
+
+```{r cache = TRUE}
+# batting variables (hits through home runs)
+pairs(df_train[2:6])
+# batting variables (walks, strikeouts, hit by pitch)
+pairs(df_train[c(2, 7:8, 11)])
+# baserun and fielding variables
+pairs(df_train[c(2, 9:10, 16:17)])
+# pitching variables
+pairs(df_train[c(2, 12:15)])
+```
+
+
+# Data Preparation
+
+Data preparation is a pre-processing step that involves cleansing, transforming, and consolidating data. Our first step in the data preparation process was to identify what variables needed to be manipulated within the dataset. We utilize the `funModeling` package for this purpose. This package contains a set of functions related to exploratory data analysis, data preparation, and model performance. `funModeling` is intimately related to the Data Science Live Book -Open Source- (2017). Here, `funModeling` df_status(), is being used to  analyze the zeros, missing values (NA), infinity, data type, and number of unique values for a given dataset.
+
+```{r}
+# df_status function to show zero's and missing values
+train_data_status <- df_status(df_train, print_results=FALSE) 
+# order by percentage of missing values
+train_data_status[order(-train_data_status$p_na),]
+```
+
+## Missing Values
+
+With this particular dataset, using the df_status(), we identified our biggest challenge was to deal with NA's. There was a minimal amount of zero's which accounted for less than one percent of the dataset for any variable. Therefore, we decided to focus on NA's. We ordered the percentage of NA's and identified these variables to be transformed using different imputation methods to be discussed below:
+
+* TEAM_BATTING_HBP	
+* TEAM_BASERUN_CS	
+* TEAM_FIELDING_DP	
+* TEAM_BASERUN_SB	
+* TEAM_BATTING_SO
+* TEAM_PITCHING_SO.
+
+We decided to use mean imputation on all variables, however, for variables above ten percent (10%) threshold we included the use of a dummy variable to identify if an NA is present. The three variables with a dummy variable are:
+
+* TEAM_BATTING_HBP
+* TEAM_BASERUN_CS
+* TEAM_FIELDING_DP.
+
+Creating a dummy variable called HBP_missing which triggers "1"" if TEAM_BATTING_HBP value is NA and "0" if not. Imputing mean value on all NA's.
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$HBP_missing <- ifelse(is.na(df_train$TEAM_BATTING_HBP), 1, 0)
+# imputing NA to mean
+df_train$TEAM_BATTING_HBP[is.na(df_train$TEAM_BATTING_HBP)] <- mean(df_train$TEAM_BATTING_HBP, na.rm=TRUE)
+```
+
+Creating a dummy variable called CS_missing which triggers "1" if TEAM_BASERUN_CS value is NA and "0" if not. Imputing mean value on all NA's.
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$CS_missing <- ifelse(is.na(df_train$TEAM_BASERUN_CS), 1, 0)
+# imputing NA to mean
+df_train$TEAM_BASERUN_CS[is.na(df_train$TEAM_BASERUN_CS)] <- mean(df_train$TEAM_BASERUN_CS, na.rm=TRUE)
+```
+
+Creating a dummy variable called DP_missing which triggers "1" if TEAM_FIELDING_DP value is NA and "0" if not. Imputing mean value on all NA's.
+
+```{r}
+# trigger a dummy variable if NA is present
+df_train$DP_missing <- ifelse(is.na(df_train$TEAM_FIELDING_DP), 1, 0)
+# imputing NA to mean
+df_train$TEAM_FIELDING_DP[is.na(df_train$TEAM_FIELDING_DP)] <- mean(df_train$TEAM_FIELDING_DP, na.rm=TRUE)
+```
+
+These variables fall under the ten percent (10%) threshold. No dummy variables will be utilized, mean imputation will be used for all NA's.
+
+```{r}
+# imputing mean value as a replacement to NA
+df_train$TEAM_BASERUN_SB[is.na(df_train$TEAM_BASERUN_SB)] <- mean(df_train$TEAM_BASERUN_SB, na.rm=TRUE)
+df_train$TEAM_BATTING_SO[is.na(df_train$TEAM_BATTING_SO)] <- mean(df_train$TEAM_BATTING_SO, na.rm=TRUE)
+df_train$TEAM_PITCHING_SO[is.na(df_train$TEAM_PITCHING_SO)] <- mean(df_train$TEAM_PITCHING_SO, na.rm=TRUE)
+```
+
+We can see that all NA's are addressed after imputation methods.
+
+```{r}
+# results after imputation, we see all NA's are addressed
+df_status(df_train)
+```
+
+## Outliers
+
+Our next step is to deal with outliers identified within the data distribution section. We identified four variables which needed to be worked. 
+
+* TEAM_PITCHING_SO
+* TEAM_PITCHING_H
+* TEAM_PITCHING_BB
+* TEAM_FIELDING_E.
+
+We identified through boxplots which variables are impacted with outliers. Secondly, TEAM_FIELDING_E shows the potential of applying transformation to retain all data points.
+
+```{r}
+# reviewing outliers
+boxplot(df_train$TEAM_PITCHING_SO)
+# reviewing outliers
+boxplot(df_train$TEAM_PITCHING_H)
+# reviewing outliers
+boxplot(df_train$TEAM_PITCHING_BB)
+# determining opportunity for transformation
+hist(df_train$TEAM_FIELDING_E)
+```
+
+John Tukey invented the box-and-whisker plot in 1977 to display IQR values, he picked 1.5×IQR as the demarkation line for outliers. 
+Based on John Tukey box-and-whisker plot to display IQR values, he picked 1.5×IQR as the demarkation line for outliers. We will retain this approach and remove outliers for TEAM_PITCHING_SO, TEAM_PITCHING_H, and TEAM_PITCHING_BB. We removed a total of 285 records which accounts for approximately 12.5% of the total dataset. 
+
+We then boxploted these variables again to demonstrate normalization.
+
+```{r}
+# assign the TEAM_PITCHING_SO outliers into a vector
+outliers_SO <- boxplot(df_train$TEAM_PITCHING_SO, plot=FALSE)$out
+# removing TEAM_PITCHING_SO outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_SO %in% outliers_SO),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_SO)
+
+# assign the TEAM_PITCHING_H outlier values into a vector
+outliers_H <- boxplot(df_train$TEAM_PITCHING_H, plot=FALSE)$out
+# removing TEAM_PITCHING_H outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_H %in% outliers_H),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_H)
+
+# assign the TEAM_PITCHING_BB outlier values into a vector
+outliers_BB <- boxplot(df_train$TEAM_PITCHING_BB, plot=FALSE)$out
+# removing TEAM_PITCHING_BB outliers
+df_train <- df_train[-which(df_train$TEAM_PITCHING_BB %in% outliers_BB),]
+# demonstrating outliers removed, compared to above
+boxplot(df_train$TEAM_PITCHING_BB)
+```
+
+For the fourth variable, TEAM_FIELDING_E, we transformed the data using log 10 transformation. The data is still skewed, however, shows much improvement from the original variable. We deduct that this transformation is adequate and will retain this method of transformation.
+
+```{r}
+# performing log 10 transformation
+df_train$TEAM_FIELDING_E = log10(df_train$TEAM_FIELDING_E)
+# determining distribution of data
+hist(df_train$TEAM_FIELDING_E)
+```
+
+We are now ready to proceed with regression model building.
+
+# Model Building
+
+## Model lm1
+
+Model lm1 is our kitchen sink regression. This model basically has all the predictor variables from our training dataset which includes our dummy variables. All missing values (NA's) in this model was replaced with the mean value of that associated predictor. The reasoning behind building such a model is so we can find some sort of statistical pattern in the regression output. This output from this model will assist us with building our additional models. Additionally, this model has a multiple $R^2$ of 0.4191, an adjusted $R^2$ of 0.4135, an F-statistic of 74.84, and a p-value of < 2.2e-16
+
+```{r}
+#generating Model lm1 the base model
+lm1 <- lm(TARGET_WINS ~., df_train)
+(lm1sum <- summary(lm1))
+```
+
+## Model lm2
+
+Model lm3 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors were based on creating a model that had 4 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model fitted with these predictors produced 3 variables (TEAM_BATTING_H, TEAM_BATTING_BB, TEAM_BASERUN_SB) that are statistically significant. The coefficients in this model are mostly positive except for TEAM_BASERUN_CS which makes sense since caught stealing will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.2068, an adjusted $R^2$ of 0.2049, an F-statistic of 103.5, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm3
+lm2 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP + 
+              TEAM_BASERUN_SB + TEAM_BASERUN_CS, df_train)
+(lm2sum <- summary(lm2))
+```
+
+## Model lm3
+
+Model lm3 has 7 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors was based on creating a model with predictors that had to do with batting performance. This linear regression model fitted with these predictors produced 5 variables (TEAM_BATTING_H, TEAM_BATTING_2B, TEAM_BATTING_3B, TEAM_BATTING_HR, TEAM_BATTING_BB) that are statistically significant. The coefficients in this model are mostly positive except for TEAM_BATTING_2B which doesn't really makes sense since advancing to second base shouldn't have a negative impact on wins. This model is worth keeping since it is statistically sound. Additionally, this model has a multiple $R^2$ of 0.2204, an adjusted $R^2$ of 0.2176, an F-statistic of 80.07, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm2
+lm3 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_3B +TEAM_BATTING_HR + 
+               TEAM_BATTING_BB + TEAM_BATTING_HBP + TEAM_BATTING_SO, df_train)
+(lm3sum <- summary(lm3))
+```
+
+## Model lm4
+
+Model lm4 has 9 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. This model has 4 predictors with a positive impact on wins (TARGET_WINS) and 5 predictor with a negative impact on wins. The reasoning behind this model was to see how well the combination of the batting and fielding stats explained our dependent variable.This linear regression model generated 6 statistically significant variables. Additionaly, this model has a multiple $R^2$ of 0.2971, an adjusted $R^2$ of 0.2939, an F-statistic of 93.04, and a p-value of <2.2e-16
+
+```{r}
+#generating Model lm4
+lm4 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_HR + TEAM_BATTING_BB + 
+              TEAM_BATTING_SO + TEAM_BASERUN_SB + TEAM_FIELDING_E + 
+              TEAM_PITCHING_BB + TEAM_PITCHING_H + TEAM_PITCHING_HR, df_train)
+(lm4sum <- summary(lm4))
+```
+
+## Model lm5
+
+In model lm5, we transform variables to produce combinations that attempt to capture key factors for winning teams, such as:
+
+* Base hits + walks + hit-by-pitches: this is conceptually equivalent to **on-base-percentage**, i.e., the frequency of a team's batters to get on base.  A team doesn't score runs unless its batters are able to get on base.
+* Doubles + triples + homeruns: this is analogous to **slugging percentage**, i.e., the frequency of run-producing hits.  Teams that produce higher numbers of these hits (as compared to singles or walks) will tend to produce more runs.
+* Bases stolen - bases caught stealing: the net amount of stolen bases should correlate to putting runners in scoring position, which should lead to more runs.
+* Base hits allowed + walks allowed + homeruns allowed: the converse of the above on-base-percentage and slugging percentage, i.e., in favor of the opposing team.
+
+```{r}
+lm5 <- lm(TARGET_WINS ~ 
+              I(TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP) + 
+              I(TEAM_BATTING_2B + TEAM_BATTING_3B + TEAM_BATTING_HR) +
+              TEAM_BATTING_SO +
+              I(TEAM_BASERUN_SB - TEAM_BASERUN_CS) + 
+              I(TEAM_PITCHING_H + TEAM_PITCHING_BB + TEAM_PITCHING_HR) + 
+              TEAM_PITCHING_SO +
+              TEAM_FIELDING_E + TEAM_FIELDING_DP + 
+              HBP_missing + CS_missing + DP_missing, df_train)
+(lm5sum <- summary(lm5))
+```
+
+## Model lm6
+
+Finally, in model lm6, we try a different approach to combination variables, which attempts to capture the differential between a team and its opponents with respect to various dimensions of performance.  Such factors include:
+
+* Hits and walks: teams that produce more hits and walks than their opponents will tend to produce more runs.
+* Homeruns: teams that hit more homeruns than their opponents will tend to score more runs.
+* Strikeouts: teams that strike out more often than their opponents will tend to score fewer runs.
+
+```{r}
+lm6 <- lm(TARGET_WINS ~ 
+              I(TEAM_BATTING_H + TEAM_BATTING_BB 
+                - TEAM_PITCHING_H - TEAM_PITCHING_BB) + 
+              I(TEAM_BATTING_HR - TEAM_PITCHING_HR) + 
+              I(TEAM_BATTING_SO - TEAM_PITCHING_SO) + 
+              I(TEAM_BASERUN_SB - TEAM_BASERUN_CS) +
+              TEAM_FIELDING_E + TEAM_FIELDING_DP + 
+              HBP_missing + CS_missing + DP_missing, df_train)
+(lm6sum <- summary(lm6))
+```
+
+# Model Evaluation
+
+We start by reviewing summary statistics for each model, including:
+
+* N_Vars: number of predictor variables
+* Sigma: residual standard error 
+* R_Sq: multiple $R^2$
+* Adj_R_Sq: adjusted $R^2$
+* F_P_Val: p-value corresponding to the F-statistic
+* MSE: mean squared error
+* RMSE: root mean squared error.
+
+These statistics are computed based on the training dataset.
+
+```{r}
+library(knitr)
+
+# list of models and model summaries
+models <- list(lm1, lm2, lm3, lm4, lm5, lm6)
+modsums <- list(lm1sum, lm2sum, lm3sum, lm4sum, lm5sum, lm6sum)
+nmod <- length(modsums)
+
+# storage variables
+nvar <- integer(nmod)
+sigma <- numeric(nmod)
+rsq <- numeric(nmod)
+adj_rsq <- numeric(nmod)
+fstat_p <- numeric(nmod)
+mse <- numeric(nmod)
+rmse <- numeric(nmod)
+
+# loop through model summaries
+for (j in 1:nmod) {
+    nvar[j] <- modsums[[j]]$df[1]
+    sigma[j] <- modsums[[j]]$sigma
+    rsq[j] <- modsums[[j]]$r.squared
+    adj_rsq[j] <- modsums[[j]]$adj.r.squared
+    fstat_p[j] <- 1 - pf(modsums[[j]]$fstatistic[1], modsums[[j]]$fstatistic[2], 
+                         modsums[[j]]$fstatistic[3])
+    mse[j] <- mean(modsums[[j]]$residuals^2)
+    rmse[j] <- sqrt(mse[j])
+}
+
+modnames <- paste0("lm", c(1:nmod))
+
+# evaluation dataframe
+eval <- data.frame(Model = modnames, 
+                   N_Vars = nvar,
+                   Sigma = sigma,
+                   R_Sq = rsq,
+                   Adj_R_Sq = adj_rsq,
+                   F_P_Val = fstat_p,
+                   MSE = mse,
+                   RMSE = rmse)
+
+kable(eval, digits = 3, align = 'c', caption = 'Model Summary Statistics')
+```
+
+Based on the summary statistics above, it appears that our kitchen sink model (`lm1`) has the best overall performance metrics: the lowest residual standard error (10.8), the highest adjusted $R^2$ (41.4%), and the lowest MSE / RMSE (114.8 / 10.7).  We therefore select `lm1` as our champion model.  
+
+## Model Diagnostics
+
+Let's review the model diagnostics for our champion model to ensure that key model assumptions are satisfied:
+
+* Linear relationship between the response and predictor variables
+* Independence of errors
+* Approximately constant variance of errors
+* Approximately normal distribution of errors.
+
+```{r}
+# champion model
+champ <- lm1
+# plot diagnostics
+par(mfrow = c(2, 2))
+plot(champ)
+```
+
+From the residual vs. fitted value chart, it appears that response and predictor variables follow a linear relationship.  From the same chart as well as the square root absolue value residual vs. fited value chart, it appears that the residuals have approximately constant variance.  Finally, the normal Q-Q plot suggests that the residuals are approximately normally distributed.  It is evident from the standardized residual vs. leverage chart that there are outliers in the dataset, which may have high leverage.  
+
+Finally, we plot the standardized residuals vs. each predictor variable in the champion model.  Although the standardized residuals exhibit some structure with respect to certain variables (see TEAM_BATTING_SO in particular), overall the standardized residuals are mostly consistent with our regression assumptions.
+
+```{r}
+# list of variables in champion model
+attach(df_train)
+var_list <- list(TEAM_BATTING_H, TEAM_BATTING_2B, TEAM_BATTING_3B, 
+                 TEAM_BATTING_HR, TEAM_BATTING_BB, TEAM_BATTING_HBP,
+                 TEAM_BATTING_SO, TEAM_BASERUN_SB, TEAM_BASERUN_CS, 
+                 TEAM_PITCHING_H, TEAM_PITCHING_HR, TEAM_PITCHING_BB,
+                 TEAM_PITCHING_SO, TEAM_FIELDING_E, TEAM_FIELDING_DP)
+var_names <- c("TEAM_BATTING_H", "TEAM_BATTING_2B", "TEAM_BATTING_3B", 
+               "TEAM_BATTING_HR", "TEAM_BATTING_BB", "TEAM_BATTING_HBP", 
+               "TEAM_BATTING_SO", "TEAM_BASERUN_SB", "TEAM_BASERUN_CS",  
+               "TEAM_PITCHING_H", "TEAM_PITCHING_HR", "TEAM_PITCHING_BB",
+               "TEAM_PITCHING_SO", "TEAM_FIELDING_E", "TEAM_FIELDING_DP")
+detach(df_train)
+
+# plot standardized residuals vs predictor variables
+par(mfrow = c(1, 2))
+for (j in 1:length(var_list))
+    plot(rstandard(champ) ~ var_list[[j]], ylab = "Standardized Residuals",
+         xlab = var_names[j])
+```
+
+## Discussion
+
+Several points that are worth highlighting:
+
+* Selection criteria for champion model:
+
+* Performance vs. reasonability: (review coefficients for intuitiveness)
+
+* How to make inferences from model:
+
+* Multi-collinearity issues:
+
+## Predicted Wins for the Evaluation Dataset
+
+Now that we've chosen our champion model, we can use it to predict the number of wins for the evaluation dataset.  First we have to prepare the dataset using the same procedure followed above for the training dataset, in order to run it through the model.  In particular, we use mean imputation to substitute for any NA values, create indicator variables for missing values, and use a log transform on the fielding errors variable.  Then we use the champion model to predict the target values (number of wins) and save this to disk. 
+
+```{r}
+# view the test data
+glimpse(df_test)
+summary(df_test)
+
+# prepare the data (same as done for training dataset):
+#   - indicator variables for NA's
+#   - mean imputation for NA's
+#   - log10 transform for fielding_error variable
+
+# indicator variables for NA's
+df_test$HBP_missing <- ifelse(is.na(df_test$TEAM_BATTING_HBP), 1, 0)
+df_test$CS_missing <- ifelse(is.na(df_test$TEAM_BASERUN_CS), 1, 0)
+df_test$DP_missing <- ifelse(is.na(df_test$TEAM_FIELDING_DP), 1, 0)
+
+# mean imputation for NA's
+colavg <- colMeans(df_test, na.rm = TRUE)
+df_test_prep <- df_test
+for (j in 2:ncol(df_test))
+    df_test_prep[is.na(df_test[ , j]), j] <- colavg[j]
+
+# log10 transform for fielding_error variable
+df_test_prep$TEAM_FIELDING_E <- log10(df_test_prep$TEAM_FIELDING_E)
+
+# make predictions
+predictions <- predict(champ, newdata = df_test_prep)
+df_pred <- cbind(df_test, PREDICT_WINS = predictions)
+
+# review the final test dataset
+glimpse(df_pred)
+head(df_pred)
+
+# save as csv file
+write_csv(df_pred, "moneyball-predictions.csv")
+```
+
+# Suggestions for Further Work
+
+Ideas for further work include:
+
+* **Investigate outliers**: Some variables exhibited extreme outliers (see TEAM_PITCHING_SO); these may be data errors.  Also, it would be prudent to investigate whether outliers in the data for key variables are influential leverage points, which might skew the fitted model.
+* **Explore variable transformations**: As seen in the exploratory data analysis, certain variables have moderately to strongly skewed distributions.  In these cases, it might be fruitful to experiment with a variety of variable transformations, including the Box-Cox method.
+* **Assess missing data indicators**: As discussed in the data preparation, certain variables had a significant proportion of missing values.  In general, we opted to use mean imputation to substitute for these missing values.  It would be interesting to assess the usefulness of missing data indicator variables, by including them in the models and evaluating whether they improve model performance.
+
+
+
+
+
+
