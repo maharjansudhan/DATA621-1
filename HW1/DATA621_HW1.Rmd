@@ -413,7 +413,7 @@ par(mfrow = c(2, 2))
 plot(lm6)
 ```
 
-From the residual vs. fitted value chart, it appears that response and predictor variables follow a linear relationship.  From the same chart as well as the square root absolue value residual vs. fited value chart, it appears that the residuals have approximately constant variance.  Finally, the normal Q-Q plot suggests that the residuals are approximately normally distributed.  It is evident from the standardized residual vs. leverage chart that there are outliers in the dataset, which may have high leverage.  
+From the residual vs. fitted value chart, it appears that response and predictor variables follow a linear relationship.From the same chart as well as the square root absolue value residual vs. fited value chart, it appears that the residuals have approximately constant variance.  Finally, the normal Q-Q plot suggests that the residuals are approximately normally distributed.  It is evident from the standardized residual vs. leverage chart that there are outliers in the dataset, which may have high leverage.  
 
 [[depending on model chosen, plot standardized resids vs each predictor variable]]
 
