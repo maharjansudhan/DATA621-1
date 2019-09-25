@@ -207,11 +207,12 @@ We are now ready to proceed with regression model building.
 
 ## Model lm1
 
-Model lm1 is our kitchen sink regression. This model basically has all the predictor variables from our training dataset which includes our dummy variables. All missing values (NA's) in this model was replaced with the mean value of that associated predictor. The reasoning behind building such a model is so we can find some sort of statistical pattern in the regression output. This output from this model will assist us with building our additional models. Additionally, this model has a multiple $R^2$ of 0.4191, an adjusted $R^2$ of 0.4135, an F-statistic of 74.84, and a p-value of < 2.2e-16
+Model lm1 is our kitchen sink regression. This model basically has all the predictor variables (excluding the index) from our training dataset which includes our dummy variables. All missing values (NA's) in this model were replaced with the mean value of that associated predictor. The reasoning behind building such a model is so we can find some sort of statistical pattern in the regression output. This output from this model will assist us with building our additional models. Additionally, this model has a multiple $R^2$ of 0.4189, an adjusted $R^2$ of 0.4135, an F-statistic of 78.96, and a p-value of < 2.2e-16
 
 ```{r}
 #generating Model lm1 the base model
-lm1 <- lm(TARGET_WINS ~., df_train)
+# all variables except the index
+lm1 <- lm(TARGET_WINS ~ . - INDEX, df_train)
 (lm1sum <- summary(lm1))
 ```
 
@@ -318,6 +319,7 @@ nvar <- integer(nmod)
 sigma <- numeric(nmod)
 rsq <- numeric(nmod)
 adj_rsq <- numeric(nmod)
+fstat <- numeric(nmod)
 fstat_p <- numeric(nmod)
 mse <- numeric(nmod)
 rmse <- numeric(nmod)
@@ -328,6 +330,7 @@ for (j in 1:nmod) {
     sigma[j] <- modsums[[j]]$sigma
     rsq[j] <- modsums[[j]]$r.squared
     adj_rsq[j] <- modsums[[j]]$adj.r.squared
+    fstat[j] <- modsums[[j]]$fstatistic[1]
     fstat_p[j] <- 1 - pf(modsums[[j]]$fstatistic[1], modsums[[j]]$fstatistic[2], 
                          modsums[[j]]$fstatistic[3])
     mse[j] <- mean(modsums[[j]]$residuals^2)
@@ -342,6 +345,7 @@ eval <- data.frame(Model = modnames,
                    Sigma = sigma,
                    R_Sq = rsq,
                    Adj_R_Sq = adj_rsq,
+                   F_Stat = fstat,
                    F_P_Val = fstat_p,
                    MSE = mse,
                    RMSE = rmse)
@@ -370,7 +374,7 @@ plot(champ)
 
 From the residual vs. fitted value chart, it appears that response and predictor variables follow a linear relationship.  From the same chart as well as the square root absolue value residual vs. fited value chart, it appears that the residuals have approximately constant variance.  Finally, the normal Q-Q plot suggests that the residuals are approximately normally distributed.  It is evident from the standardized residual vs. leverage chart that there are outliers in the dataset, which may have high leverage.  
 
-Finally, we plot the standardized residuals vs. each predictor variable in the champion model.  Although the standardized residuals exhibit some structure with respect to certain variables (see TEAM_BATTING_SO in particular), overall the standardized residuals are mostly consistent with our regression assumptions.
+Finally, we plot the standardized residuals vs. each predictor variable in the champion model.  Although the standardized residuals exhibit some structure with respect to certain variables (particularly for the variables like TEAM_BATTING_HBP where mean imputation was used for missing values), overall the standardized residuals are mostly consistent with our regression assumptions.
 
 ```{r}
 # list of variables in champion model
@@ -396,15 +400,15 @@ for (j in 1:length(var_list))
 
 ## Discussion
 
-Several points that are worth highlighting:
+Several points relating to our model selection are worth highlighting:
 
-* Selection criteria for champion model:
+* **Selection criteria for champion model**: We chose our champion model on the basis of its predictive performance, primarily focusing on the residual standard error ($\sigma$), adjusted $R^2$, and the root mean squared error (RMSE) metrics as measured against the training dataset.  The champion model has the lowest $\sigma$, highest $R^2$, and lowest RMSE.  Although it doesn't have the highest F-statistic, the p-value associated with the F-statistic (roughly 0) is comparable to the p-values for the other models.  Finally, the vast majority of the coefficients are statistically significant at the $\alpha = 0.05$ level. 
 
-* Performance vs. reasonability: (review coefficients for intuitiveness)
+* **Performance vs. reasonability**: Reviewing the regression output above, the champion model has strong explanatory power, as most of the coefficient signs are consistent with intuition.  For instance, teams that generate more runners on base (TEAM_BATTING_H, TEAM_BATTING_BB, TEAM_BATTING_HBP) or more run-producing hits (TEAM_BATTING_3B, TEAM_BATTING_HR) tend to win more games.  Likewise, teams that allow their opponents to get on base or hit homeruns more often (TEAM_PITCHING_BB, TEAM_PITCHING_HR) tend to win fewer games.  Some coefficients, however, had counter-intuitive signs, which likely results from idiosyncracies with the data or likely multi-collinearity issues (see below).  For instance, teams that produce more doubles (TEAM_BATTING_2B) should win more games on average (positive coefficient), and teams that allow more base hits (TEAM_PITCHING_H) should win fewer games on average (negative coefficient), but the estimated coefficient signs are reversed.  As a side note, the coefficient for the fielding errors variable (TEAM_FIELDING_E) has a different order of magnitude compared to the other coefficients, but this is an artifact of the log variable transformation performed during data preparation.  
 
-* How to make inferences from model:
+* **Multi-collinearity**: The champion model most likely has multi-collinearity issues, as some of the variables are related by definition.  For instance, the total basehits variable (TEAM_BATTING_H) includes the numbers of doubles (TEAM_BATTING_2B), triples (TEAM_BATTING_3B), and homeruns (TEAM_BATTING_HR), which may explain why the basehits variable is not significant and why the doubles coefficient is negative.  Likewise, the hits allowed variable (TEAM_PITCHING_H) includes the number of homeruns allowed (TEAM_PITCHING_HR), which again may explain why the hits allowed variable is not significant and has a counter-intuitive sign.
 
-* Multi-collinearity issues:
+* **Inferences**: Inferences from the model such as predicted mean values, confidence intervals, and prediction intervals for the target variable can be made using the `predict` function.  One simply needs to input the relevant values of the predictor variables for which inferences are desired.  For instance in the next section, we use `predict` to generate predicted mean values for the target variable based on the evaluation dataset.  If we were to specify the interval type ("confidence" or "prediction"), the function would also return the respective intervals.
 
 ## Predicted Wins for the Evaluation Dataset
 
@@ -452,7 +456,7 @@ Ideas for further work include:
 
 * **Investigate outliers**: Some variables exhibited extreme outliers (see TEAM_PITCHING_SO); these may be data errors.  Also, it would be prudent to investigate whether outliers in the data for key variables are influential leverage points, which might skew the fitted model.
 * **Explore variable transformations**: As seen in the exploratory data analysis, certain variables have moderately to strongly skewed distributions.  In these cases, it might be fruitful to experiment with a variety of variable transformations, including the Box-Cox method.
-* **Assess missing data indicators**: As discussed in the data preparation, certain variables had a significant proportion of missing values.  In general, we opted to use mean imputation to substitute for these missing values.  It would be interesting to assess the usefulness of missing data indicator variables, by including them in the models and evaluating whether they improve model performance.
+* **Assess missing data indicators**: As discussed in the data preparation, certain variables had a significant proportion of missing values.  In general, we opted to use mean imputation to substitute for these missing values, and for certain variables with a high proportion of missing values (>10%), we also used indicator variables.  It would be interesting to assess the usefulness of these missing indicator variables, by including them and then excluding them in the models and evaluating their impact on model performance.
 
 
 
