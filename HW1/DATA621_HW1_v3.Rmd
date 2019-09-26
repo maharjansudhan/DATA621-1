@@ -218,10 +218,10 @@ lm1 <- lm(TARGET_WINS ~ . - INDEX, df_train)
 
 ## Model lm2
 
-Model lm3 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors were based on creating a model that had 4 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model fitted with these predictors produced 3 variables (TEAM_BATTING_H, TEAM_BATTING_BB, TEAM_BASERUN_SB) that are statistically significant. The coefficients in this model are mostly positive except for TEAM_BASERUN_CS which makes sense since caught stealing will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.2068, an adjusted $R^2$ of 0.2049, an F-statistic of 103.5, and a p-value of <2.2e-16
+Model lm2 has 5 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors were based on creating a model that had 4 predictors with a positive impact on wins (TARGET_WINS) and 1 predictor with a negative impact on wins. This linear regression model fitted with these predictors produced 3 variables (TEAM_BATTING_H, TEAM_BATTING_BB, TEAM_BASERUN_SB) that are statistically significant. The coefficients in this model are mostly positive except for TEAM_BASERUN_CS which make sense since caught stealing will cause your team to lose points. Additionally, this model has a multiple $R^2$ of 0.2068, an adjusted $R^2$ of 0.2049, an F-statistic of 103.5, and a p-value of <2.2e-16
 
 ```{r}
-#generating Model lm3
+#generating Model lm2
 lm2 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP + 
               TEAM_BASERUN_SB + TEAM_BASERUN_CS, df_train)
 (lm2sum <- summary(lm2))
@@ -232,7 +232,7 @@ lm2 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP +
 Model lm3 has 7 predictor variables. All missing values (NA's) were replaced with the mean value of that associated predictor. The selection of these predictors was based on creating a model with predictors that had to do with batting performance. This linear regression model fitted with these predictors produced 5 variables (TEAM_BATTING_H, TEAM_BATTING_2B, TEAM_BATTING_3B, TEAM_BATTING_HR, TEAM_BATTING_BB) that are statistically significant. The coefficients in this model are mostly positive except for TEAM_BATTING_2B which doesn't really makes sense since advancing to second base shouldn't have a negative impact on wins. This model is worth keeping since it is statistically sound. Additionally, this model has a multiple $R^2$ of 0.2204, an adjusted $R^2$ of 0.2176, an F-statistic of 80.07, and a p-value of <2.2e-16
 
 ```{r}
-#generating Model lm2
+#generating Model lm3
 lm3 <- lm(TARGET_WINS ~ TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_3B +TEAM_BATTING_HR + 
                TEAM_BATTING_BB + TEAM_BATTING_HBP + TEAM_BATTING_SO, df_train)
 (lm3sum <- summary(lm3))
@@ -260,6 +260,7 @@ In model lm5, we transform variables to produce combinations that attempt to cap
 * Base hits allowed + walks allowed + homeruns allowed: the converse of the above on-base-percentage and slugging percentage, i.e., in favor of the opposing team.
 
 ```{r}
+#generating Model lm5
 lm5 <- lm(TARGET_WINS ~ 
               I(TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_HBP) + 
               I(TEAM_BATTING_2B + TEAM_BATTING_3B + TEAM_BATTING_HR) +
@@ -281,6 +282,7 @@ Finally, in model lm6, we try a different approach to combination variables, whi
 * Strikeouts: teams that strike out more often than their opponents will tend to score fewer runs.
 
 ```{r}
+#generating Model lm6
 lm6 <- lm(TARGET_WINS ~ 
               I(TEAM_BATTING_H + TEAM_BATTING_BB 
                 - TEAM_PITCHING_H - TEAM_PITCHING_BB) + 
