@@ -23,13 +23,41 @@ head(df)
 Use the table() function to get the raw confusion matrix for this scored dataset. Make sure you understand the output. In particular, do the rows represent the actual or predicted class? The columns?
 
 ```{r}
-with(df, table(scored.class, class)[2:1,2:1])
+#to cross check the 0s and 1s and see the difference
+
+print(df$scored.class)
+
+print(df$class)
+
+
+raw_confusion_matrix <- table(df$class,df$scored.class)
+raw_confusion_matrix
+
 ```
+Here, we have Actual and Predicted class, the rows can be called Acutal class and and columns can be called Predicted class even though they have different meanings and represents different values.
 
 
 3. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified, and returns the accuracy of the predictions.
 𝐴𝑐𝑐𝑢𝑟𝑎𝑐𝑦= 𝑇𝑃+𝑇𝑁𝑇𝑃+𝐹𝑃+𝑇𝑁+𝐹𝑁
 
+```{r}
+##create confusion matrix
+
+accuracy <- function(df){
+  confusion_matrix <- table("Actual"=df$class, "Predicted"=df$scored.class)
+  confusion_matrix <- data.frame(confusion_matrix)
+  accuracy_value <- (confusion_matrix$Freq[1] + confusion_matrix$Freq[4])/sum(confusion_matrix$Freq)
+  return(accuracy_value)
+}
+
+(Accuracy <- accuracy(df))
+```
+In other words, 
+Accuracy = (TP + TN)/sum(TP+TN+FP+FN)
+          = (119 + 27) / (119+5+30+27)
+          = 0.8066298
+          
+          
 4. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified, and returns the classification error rate of the predictions.
 𝐶𝑙𝑎𝑠𝑠𝑖𝑓𝑖𝑐𝑎𝑡𝑖𝑜𝑛 𝐸𝑟𝑟𝑜𝑟 𝑅𝑎𝑡𝑒= 𝐹𝑃+𝐹𝑁𝑇𝑃+𝐹𝑃+𝑇𝑁+𝐹𝑁
 Verify that you get an accuracy and an error rate that sums to one.
